@@ -1,4 +1,18 @@
 #pragma once
+/*
+#include "dcmtk/config/osconfig.h"
+#include "dcmtk/dcmdata/cmdlnarg.h"
+#include "dcmtk/ofstd/ofconapp.h"
+#include "dcmtk/dcmdata/dcuid.h"
+#include "dcmtk/dcmdata/dcfilefo.h"
+#include "dcmtk/dcmdata/dcdict.h"
+#include "dcmtk/dcmdata/libi2d/i2d.h"
+#include "dcmtk/dcmdata/libi2d/i2djpgs.h"
+#include "dcmtk/dcmdata/libi2d/i2dbmps.h"
+#include "dcmtk/dcmdata/libi2d/i2dplsc.h"
+#include "dcmtk/dcmdata/libi2d/i2dplvlp.h"
+#include "dcmtk/dcmdata/libi2d/i2dplnsc.h"
+*/
 #include <fstream>
 #include <windows.h>
 #include <gdiplus.h>
@@ -24,7 +38,7 @@ class Tiff2Dcm
 
 	public:
 		Tiff2Dcm();
-		~Tiff2Dcm() { GdiplusShutdown(gdiplusToken); }
+		~Tiff2Dcm();
 		void convertBMPtoDCM(const std::wstring path);
 
 	private:

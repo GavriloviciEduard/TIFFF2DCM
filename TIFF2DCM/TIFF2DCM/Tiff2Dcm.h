@@ -1,5 +1,15 @@
 #pragma once
-/*
+
+
+
+#include <fstream>
+#include <vector>
+#include <windows.h>
+#include <gdiplus.h>
+#include <string>
+#include <fstream>
+#include <experimental/filesystem> 
+#include <filesystem>
 #include "dcmtk/config/osconfig.h"
 #include "dcmtk/dcmdata/cmdlnarg.h"
 #include "dcmtk/ofstd/ofconapp.h"
@@ -12,13 +22,10 @@
 #include "dcmtk/dcmdata/libi2d/i2dplsc.h"
 #include "dcmtk/dcmdata/libi2d/i2dplvlp.h"
 #include "dcmtk/dcmdata/libi2d/i2dplnsc.h"
-*/
-#include <fstream>
-#include <windows.h>
-#include <gdiplus.h>
-#include <stdio.h>
-#include <string>
-#include <fstream>
+#include "dcmtk/dcmdata/dcdeftag.h"
+
+
+using namespace std::experimental::filesystem::v1;
 using namespace Gdiplus;
 #pragma comment (lib, "gdiplus.lib")
 
@@ -32,16 +39,21 @@ class Tiff2Dcm
 {
 
 	private:
-		Bitmap* bitmap;
+		std::vector<Bitmap*> bitmaps;
+		std::vector<std::wstring> paths;
 		GdiplusStartupInput gdiplusStartupInput;
 		ULONG_PTR gdiplusToken;
+		std::wstring pathData;
+		std::wstring BMPData;
 
 	public:
 		Tiff2Dcm();
 		~Tiff2Dcm();
-		void convertBMPtoDCM(const std::wstring path);
+		void convertBMPtoDCM(const std::wstring path, const OFString& outputFile);
 
 	private:
 		void convertTIFFtoBMP(const std::wstring path);
+		void saveTempBMP();
+
 };
 

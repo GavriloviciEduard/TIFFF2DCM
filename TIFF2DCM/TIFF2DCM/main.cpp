@@ -1,4 +1,4 @@
-#include "vld.h"
+//#include "vld.h"
 #include "Tiff2Dcm.h"
 
 int main()

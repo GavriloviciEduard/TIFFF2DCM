@@ -18,7 +18,6 @@ void Tiff2Dcm::convertBMPtoDCM(const std::wstring pathIN, const std::wstring pat
 {
 	this->convertTIFFtoJPEG(pathIN);
 
-	
 	OFString outputFile = this->convertWstring(pathOUT).c_str();
 
 	if (this->paths.size()) // if converted with succes
@@ -100,6 +99,10 @@ void Tiff2Dcm::convertBMPtoDCM(const std::wstring pathIN, const std::wstring pat
 			dcmff.saveFile(outputFile.c_str(), writeXfer, lengthEnc, grpLengthEnc, padEnc, OFstatic_cast(Uint32, filepad), OFstatic_cast(Uint32, itempad), writeMode);
 		}
 
+		else
+			exit(2);//could not create dcm
+		
+
 		delete outPlug;
 		outPlug = NULL;
 		delete inputPlug;
@@ -129,7 +132,7 @@ void Tiff2Dcm::convertTIFFtoJPEG(const std::wstring path)
 		{
 
 			temp->SelectActiveFrame(&FrameDimensionPage, i); // current frame
-			
+
 			std::wstring name(L"tmp");
 			std::wstring type(L".jpg");
 			std::wstring nr = std::to_wstring(i);
@@ -147,7 +150,10 @@ void Tiff2Dcm::convertTIFFtoJPEG(const std::wstring path)
 		//cleanup
 		delete temp;
 		file.close();
-	}	
+	}
+
+	else
+		exit(1); //file not found
 }
 
 void Tiff2Dcm::extractPixelData(const std::wstring path)
@@ -155,6 +161,33 @@ void Tiff2Dcm::extractPixelData(const std::wstring path)
 	std::ifstream input(path.c_str(), std::ios::binary);
 	std::vector<unsigned char> buffer(std::istreambuf_iterator<char>(input), {});
 	this->pixeldata = buffer;
+}
+
+void Tiff2Dcm::readTags(const std::wstring path)
+{
+	std::fstream tags(this->convertWstring(path));
+
+	if (tags.good()&& tags.is_open())
+	{
+		std::string line;
+
+		while (std::getline(tags,line))
+		{
+			if (line.size())
+			{
+				//std::vector<std::string> el = this->split(line, "=");
+				//this->tagstxt.push_back(el[0]);
+				//this->tagstxt.push_back(el[1]);
+				//el.clear();
+
+				std::cout << line << '\n';
+			
+			}
+			
+		}
+	}
+
+	tags.close();
 }
 
 OFCondition Tiff2Dcm::CreateHeaderImage(DcmDataset *dcmDataSet)
@@ -208,6 +241,24 @@ std::string Tiff2Dcm::convertWstring(std::wstring wstr)
 	std::string converted_str = converter.to_bytes(wstr);
 
 	return converted_str;
+}
+
+
+std::vector<std::string> Tiff2Dcm::split(std::string str, std::string delim)
+{
+	std::vector<std::string> str_s;
+	char*s = (char*)str.c_str();
+	char* p;
+
+	p = strtok(s, delim.c_str());
+
+	while (p)
+	{
+		str_s.push_back(p);
+		p = strtok(0, delim.c_str());
+	}
+
+	return str_s;
 }
 
 void Tiff2Dcm::cleanUP()

@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <gdiplus.h>
 #include <fstream>
+#include <string>
 #include <experimental/filesystem> 
 #include <filesystem>
 #include "dcmtk/config/osconfig.h"
@@ -32,12 +33,14 @@ class Tiff2Dcm
 		std::wstring pathData;
 		std::vector<Uint8> pixeldata;
 		ulong nrpixels;
-
+		std::vector<std::string> tagstxt;
+		
 
 	public:
 		Tiff2Dcm();
 		~Tiff2Dcm();
 		void convertBMPtoDCM(const std::wstring pathIN, const std::wstring pathOUT);
+		void readTags(const std::wstring path);
 
 	private:
 		void convertTIFFtoJPEG(const std::wstring path);
@@ -45,5 +48,7 @@ class Tiff2Dcm
 		void extractPixelData(const std::wstring path);
 		OFCondition CreateHeaderImage(DcmDataset *dcmDataSet);
 		std::string convertWstring(std::wstring wstr);
+		std::vector<std::string> split(std::string str, std::string delim);
+
 
 };

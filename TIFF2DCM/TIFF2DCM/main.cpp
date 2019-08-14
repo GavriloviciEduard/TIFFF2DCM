@@ -13,8 +13,10 @@ int wmain(int argc, wchar_t *argv[])
 		return 0;
 	}
 
-	else
-		return - 1; //error
+	Tiff2Dcm converter = Tiff2Dcm();
+	converter.readTags(L"patient8.txt");
+	//else
+		//return - 1; //wrong arguments
 }
 
 	

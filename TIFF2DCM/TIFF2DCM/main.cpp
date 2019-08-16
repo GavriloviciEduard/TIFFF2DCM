@@ -4,19 +4,16 @@
 int wmain(int argc, wchar_t *argv[])
 {
 
-	if (argv[0] && argv[1] && argv[2])
+	if (argc == 4 && argv[1] && argv[2] && argv[3])
 	{
 		Tiff2Dcm converter = Tiff2Dcm();
-		std::wstring name(argv[0]);
-		converter.convertBMPtoDCM(argv[1], argv[2]);
+		converter.convertJPEGtoDCM(argv[1], argv[2], argv[3]);
 
 		return 0;
 	}
 
-	Tiff2Dcm converter = Tiff2Dcm();
-	converter.readTags(L"patient8.txt");
-	//else
-		//return - 1; //wrong arguments
+	else
+		return - 1; //wrong arguments*/
 }
 
 	

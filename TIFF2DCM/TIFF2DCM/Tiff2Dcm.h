@@ -5,6 +5,7 @@
 #include <gdiplus.h>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <experimental/filesystem> 
 #include <filesystem>
 #include "dcmtk/config/osconfig.h"
@@ -33,22 +34,23 @@ class Tiff2Dcm
 		std::wstring pathData;
 		std::vector<Uint8> pixeldata;
 		ulong nrpixels;
-		std::vector<std::string> tagstxt;
-		
+		std::unordered_map<std::string, std::string> tags;
 
 	public:
 		Tiff2Dcm();
 		~Tiff2Dcm();
-		void convertBMPtoDCM(const std::wstring pathIN, const std::wstring pathOUT);
-		void readTags(const std::wstring path);
+		void convertJPEGtoDCM(const std::wstring& pathIN, const std::wstring& pathDATA, const std::wstring& pathOUT);
+		
 
 	private:
 		void convertTIFFtoJPEG(const std::wstring path);
 		void cleanUP();
 		void extractPixelData(const std::wstring path);
-		OFCondition CreateHeaderImage(DcmDataset *dcmDataSet);
-		std::string convertWstring(std::wstring wstr);
-		std::vector<std::string> split(std::string str, std::string delim);
-
-
+		std::string findTag(const std::string& search);
+		OFCondition insertTags(DcmDataset *dcmDataSet);
+		OFCondition readTags(const std::wstring path);
+		friend std::string convertWstring(std::wstring wstr);
+		friend std::vector<std::string> split(std::string str, std::string delim);
+		friend std::wstring readFile(const std::wstring path);
+		friend size_t GetSizeOfFile(const std::wstring& path);
 };

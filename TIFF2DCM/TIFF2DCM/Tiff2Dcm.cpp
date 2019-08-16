@@ -1,6 +1,5 @@
 #include "Tiff2Dcm.h"
 
-
 Tiff2Dcm::Tiff2Dcm()
 {
 	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL); //setup GDI+
@@ -14,11 +13,72 @@ Tiff2Dcm::~Tiff2Dcm()
 	this->cleanUP(); //cleanup temp
 }
 
-void Tiff2Dcm::convertBMPtoDCM(const std::wstring pathIN, const std::wstring pathOUT)
+std::string convertWstring(std::wstring wstr)
+{
+	using convert_type = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_type, wchar_t> converter;
+	std::string converted_str = converter.to_bytes(wstr);
+
+	return converted_str;
+}
+
+std::vector<std::string> split(std::string str, std::string delim)
+{
+	std::vector<std::string> str_s;
+	char*s = (char*)str.c_str();
+	char* p;
+
+	p = strtok(s, delim.c_str());
+
+	while (p)
+	{
+		str_s.push_back(p);
+		p = strtok(0, delim.c_str());
+	}
+
+	return str_s;
+}
+
+size_t GetSizeOfFile(const std::wstring& path)
+{
+	struct _stat fileinfo;
+	_wstat(path.c_str(), &fileinfo);
+	return fileinfo.st_size;
+}
+
+std::wstring readFile(const std::wstring path)
+{
+
+	std::wstring buffer;
+	FILE* file = _wfopen(path.c_str(), L"rtS, ccs=UTF-8");
+
+	if (file)
+	{
+		size_t filesize = GetSizeOfFile(path.c_str());
+		// Read entire file contents in to memory
+		if (filesize > 0)
+		{
+			buffer.resize(filesize);
+			size_t wchars_read = fread(&(buffer.front()), sizeof(wchar_t), filesize, file);
+			buffer.resize(wchars_read);
+			buffer.shrink_to_fit();
+		}
+
+		fclose(file);
+		return buffer;
+	}
+
+	else
+	{
+		return std::wstring(L"error");
+	}
+}
+
+void Tiff2Dcm::convertJPEGtoDCM(const std::wstring& pathIN, const std::wstring& pathDATA, const std::wstring& pathOUT)
 {
 	this->convertTIFFtoJPEG(pathIN);
 
-	OFString outputFile = this->convertWstring(pathOUT).c_str();
+	OFString outputFile = convertWstring(pathOUT).c_str();
 
 	if (this->paths.size()) // if converted with succes
 	{
@@ -49,7 +109,7 @@ void Tiff2Dcm::convertBMPtoDCM(const std::wstring pathIN, const std::wstring pat
 		OFBool doChecks = OFTrue;
 		i2d.setValidityChecking(doChecks, insertType2, true);
 		outPlug->setValidityChecking(doChecks, insertType2, true);
-		inputPlug->setImageFile(this->convertWstring(this->paths[0]).c_str());
+		inputPlug->setImageFile(convertWstring(this->paths[0]).c_str());
 
 		if (!dcmDataDict.isDictionaryLoaded())
 		{
@@ -58,7 +118,9 @@ void Tiff2Dcm::convertBMPtoDCM(const std::wstring pathIN, const std::wstring pat
 
 		DcmDataset *resultObject = NULL;
 		OFCondition cond = i2d.convert(inputPlug, outPlug, resultObject, writeXfer);//create base file first
-		this->CreateHeaderImage(resultObject);
+		OFCondition okread = this->readTags(pathDATA);
+		if (okread.bad()) exit(3);
+		OFCondition okInserted = this->insertTags(resultObject);
 		long frames = 0;
 
 
@@ -92,7 +154,7 @@ void Tiff2Dcm::convertBMPtoDCM(const std::wstring pathIN, const std::wstring pat
 		}
 		
 	
-		if (cond.good())// Save
+		if (cond.good() && okInserted.good())// Save
 		{
 
 			DcmFileFormat dcmff(resultObject);
@@ -163,102 +225,196 @@ void Tiff2Dcm::extractPixelData(const std::wstring path)
 	this->pixeldata = buffer;
 }
 
-void Tiff2Dcm::readTags(const std::wstring path)
+std::string Tiff2Dcm::findTag(const std::string & search)
 {
-	std::fstream tags(this->convertWstring(path));
+	std::string res;
+	std::unordered_map<std::string, std::string>::iterator it;
 
-	if (tags.good()&& tags.is_open())
+	if (search == "name")
 	{
-		std::string line;
+		it = this->tags.find("name");
+		if (it != this->tags.end())
+			res = it->second + " ";
 
-		while (std::getline(tags,line))
-		{
-			if (line.size())
-			{
-				//std::vector<std::string> el = this->split(line, "=");
-				//this->tagstxt.push_back(el[0]);
-				//this->tagstxt.push_back(el[1]);
-				//el.clear();
+		it = this->tags.find("surname");
+		if (it != this->tags.end())
+			res += it->second;
 
-				std::cout << line << '\n';
-			
-			}
-			
-		}
+		return res;
 	}
 
-	tags.close();
+	else if (search == "patId")
+	{
+		it = this->tags.find("PatId");
+		if (it != this->tags.end())
+			res = it->second;
+
+		return res;
+	}
+
+	else if (search == "dateBirth")
+	{
+		it = this->tags.find("DateBirth");
+		if (it != this->tags.end())
+			res = it->second;
+
+		return res;
+	}
+
+	else if (search == "sex")
+	{
+		it = this->tags.find("Sex");
+		if (it != this->tags.end())
+			res = it->second;
+
+		return res;
+	}
+
+	else if (search == "description")
+	{
+		it = this->tags.find("Comments");
+		if (it != this->tags.end())
+			res = it->second;
+
+		return res;
+	}
+
+	else if (search == "patAddress")
+	{
+		it = this->tags.find("Address1");
+		if (it != this->tags.end())
+			res = it->second;
+
+		return res;
+	}
+
+	else if (search == "perAddress")
+	{
+		it = this->tags.find("Address2");
+		if (it != this->tags.end())
+			res = it->second;
+
+		return res;
+	}
+
+	else if (search == "operator")
+	{
+		it = this->tags.find("OperatorName");
+		if (it != this->tags.end())
+			res = it->second;
+
+		return res;
+	}
+
+	else if (search == "insurance")
+	{
+		it = this->tags.find("Insurance");
+		if (it != this->tags.end())
+			res = it->second;
+
+		return res;
+	}
+
+	else if (search == "phone")
+	{
+		it = this->tags.find("PhoneHome");
+		if (it != this->tags.end())
+			res = it->second + " ";
+
+		it = this->tags.find("PhoneWork");
+		if (it != this->tags.end())
+			res += it->second + " ";
+
+		it = this->tags.find("PhoneCell");
+		if (it != this->tags.end())
+			res += it->second;
+
+		return res;
+	}
+
+
 }
 
-OFCondition Tiff2Dcm::CreateHeaderImage(DcmDataset *dcmDataSet)
+OFCondition Tiff2Dcm::readTags(const std::wstring path)
+{
+	std::wstring tags = readFile(path.c_str());
+	std::wstringstream stream(tags);
+
+	if (tags != "error")
+	{
+		std::wstring line;
+
+		while (std::getline(stream, line))
+		{
+			std::vector<std::string> temp = split(convertWstring(line), "=");
+
+			if (temp.size() == 2)
+				this->tags.insert(std::pair<std::string, std::string>(temp[0], temp[1]));
+
+			else
+				this->tags.insert(std::pair<std::string, std::string>(temp[0], ""));
+
+			temp.clear();
+		}
+
+		return OFCondition(EC_Normal);
+	}
+
+	else
+		return OFCondition(EC_InvalidFilename);
+}
+
+OFCondition Tiff2Dcm::insertTags(DcmDataset *dcmDataSet)
 {
 	OFCondition condResult;
-	//condResult = dcmDataSet->putAndInsertString(DCM_PatientName, strPatientName.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_PatientID, strPatientID.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_PatientBirthDate, strPatientDOB.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_PatientSex, strPatientSex.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_PatientSize, strPatientHeight.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_StudyInstanceUID, strStudyUID.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_StudyDate, strStudyDate.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_StudyTime, strStudyTime.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_StudyDescription, strStudyDescription.c_str());
-	if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_NumberOfFrames, "1");
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_InstitutionAddress, strInstitutionAdress.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_InstitutionName, strInstitutionName.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_PatientAge, strPatientAge.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_Manufacturer, strManufacturer.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_ManufacturerModelName, strModel.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_SeriesNumber, strSeriesNumber.c_str());
 
-	//if (strSeriesUID == "")
-	//{
-		//char uid[100];
-		//strSeriesUID = dcmGenerateUniqueIdentifier(uid, SITE_SERIES_UID_ROOT);
-	//}
+	condResult = dcmDataSet->putAndInsertString(DCM_PatientName,findTag("name").c_str());
 
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_SeriesInstanceUID, strSeriesUID.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_SeriesDate, strSeriesDate.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_SeriesTime, strSeriesTime.c_str());
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_SeriesDescription, strSeriesDescription.c_str());
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_PatientID, findTag("patId").c_str());
 
-	//if (strSOPInstanceUID == "")
-	//{
-		//char uid[100];
-		//strSOPInstanceUID = dcmGenerateUniqueIdentifier(uid, SITE_INSTANCE_UID_ROOT);
-	//}
+	if (condResult.good()) 
+		condResult = dcmDataSet->putAndInsertString(DCM_PatientBirthDate, findTag("dateBirth").c_str());
 
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_PatientSex, findTag("sex").c_str());
 
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_SOPInstanceUID, strSOPInstanceUID.c_str());
-	if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_SOPClassUID, UID_UltrasoundImageStorage);
-	//if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_Modality, strModality.c_str());
+	if (condResult.good()) condResult = dcmDataSet->putAndInsertString(DCM_StudyDescription, findTag("description").c_str()); //?
+
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_NumberOfFrames, "1");
+
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_PatientAddress, findTag("patAddress").c_str()); // ?
+
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_PersonAddress, findTag("perAddress").c_str()); // ?
+
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_OperatorsName, findTag("operator").c_str());
+
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_SOPClassUID, UID_UltrasoundImageStorage);
+
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_RETIRED_InsurancePlanIdentification, findTag("insurance").c_str()); // ?
+
+	if (condResult.good())
+		condResult = dcmDataSet->putAndInsertString(DCM_OperatorsName, findTag("phone").c_str());
+
+	//QuickId = aici este pus CNP - ul (?)
+	//FiscalCode = (?)
+	//szName=aaaaaaaaa (?)
+	//szSurname=bbbbbbbbbb (?)
+	//MidIni= (?)
+	//BornPlace= (?)
+	//Email= (?)
+	//City= (?)
+	//State = (? )
+	//Zip = (?)
+	//DateLastImage= (?)
+
 	return condResult;
-}
-
-std::string Tiff2Dcm::convertWstring(std::wstring wstr)
-{
-	using convert_type = std::codecvt_utf8<wchar_t>;
-	std::wstring_convert<convert_type, wchar_t> converter;
-	std::string converted_str = converter.to_bytes(wstr);
-
-	return converted_str;
-}
-
-
-std::vector<std::string> Tiff2Dcm::split(std::string str, std::string delim)
-{
-	std::vector<std::string> str_s;
-	char*s = (char*)str.c_str();
-	char* p;
-
-	p = strtok(s, delim.c_str());
-
-	while (p)
-	{
-		str_s.push_back(p);
-		p = strtok(0, delim.c_str());
-	}
-
-	return str_s;
 }
 
 void Tiff2Dcm::cleanUP()
